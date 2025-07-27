@@ -42,6 +42,12 @@ namespace SafeVaultApp
                 // Run authentication and authorization tests
                 AuthenticationTests.RunAllTests();
 
+                // Run security vulnerability testing (Activity 3)
+                SecurityVulnerabilityTests.RunAllVulnerabilityTests();
+
+                // Run security remediation testing (Activity 3)
+                SecurityRemediationTests.RunSecurityRemediationTests();
+
                 // Demonstrate secure authentication
                 DemonstrateSecureAuthentication(config, logger);
 
