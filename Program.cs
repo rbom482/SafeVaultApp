@@ -5,6 +5,7 @@ using SafeVaultApp.Services;
 using SafeVaultApp.Tests;
 using SafeVaultApp.Configuration;
 using SafeVaultApp.Logging;
+using SafeVaultApp.Features;
 
 namespace SafeVaultApp
 {
@@ -38,8 +39,17 @@ namespace SafeVaultApp
                 // Run comprehensive security tests
                 SecurityTests.RunAllTests();
 
+                // Run authentication and authorization tests
+                AuthenticationTests.RunAllTests();
+
                 // Demonstrate secure authentication
                 DemonstrateSecureAuthentication(config, logger);
+
+                // Demonstrate role-based authorization
+                DemonstrateRoleBasedAuthorization(config, logger);
+
+                // Demonstrate feature access control
+                DemonstrateFeatureAccessControl(config, logger);
 
                 // Demonstrate input validation
                 DemonstrateInputValidation();
@@ -155,6 +165,136 @@ namespace SafeVaultApp
                 Console.WriteLine($"Safe: {isSafe}");
                 Console.WriteLine($"Sanitized: {sanitized}");
             }
+        }
+
+        /// <summary>
+        /// Demonstrates role-based authorization (RBAC) functionality.
+        /// Shows how different user roles have different access levels.
+        /// </summary>
+        private static void DemonstrateRoleBasedAuthorization(SecurityConfiguration config, ISecurityLogger logger)
+        {
+            Console.WriteLine("\n=== Role-Based Authorization Demo ===");
+
+            var authService = new AuthenticationService(config, logger);
+
+            // Test scenarios with different user roles
+            var roleTestCases = new[]
+            {
+                new { Username = "admin", Role = "admin", Description = "Admin user accessing admin features" },
+                new { Username = "moderator", Role = "moderator", Description = "Moderator user accessing moderation features" },
+                new { Username = "regularuser", Role = "user", Description = "Regular user accessing user features" },
+                new { Username = "hacker", Role = "user", Description = "Potential attacker attempting privilege escalation" }
+            };
+
+            foreach (var testCase in roleTestCases)
+            {
+                Console.WriteLine($"\nTesting: {testCase.Description}");
+                Console.WriteLine($"Username: {testCase.Username} (Role: {testCase.Role})");
+
+                // Test admin dashboard access
+                bool adminAccess = authService.CanAccessAdminDashboard(testCase.Username);
+                Console.WriteLine($"Admin Dashboard Access: {(adminAccess ? "✅ GRANTED" : "❌ DENIED")}");
+
+                // Test moderation tools access
+                bool moderationAccess = authService.CanAccessModerationTools(testCase.Username);
+                Console.WriteLine($"Moderation Tools Access: {(moderationAccess ? "✅ GRANTED" : "❌ DENIED")}");
+
+                // Test role retrieval
+                string? userRole = authService.GetUserRole(testCase.Username);
+                Console.WriteLine($"Detected Role: {userRole ?? "NOT_FOUND"}");
+
+                // Test authorization for different roles
+                bool isAuthorizedAdmin = authService.IsUserAuthorized(testCase.Username, "admin");
+                bool isAuthorizedModerator = authService.IsUserAuthorized(testCase.Username, "moderator");
+                bool isAuthorizedUser = authService.IsUserAuthorized(testCase.Username, "user");
+
+                Console.WriteLine($"Admin Authorization: {(isAuthorizedAdmin ? "✅" : "❌")}");
+                Console.WriteLine($"Moderator Authorization: {(isAuthorizedModerator ? "✅" : "❌")}");
+                Console.WriteLine($"User Authorization: {(isAuthorizedUser ? "✅" : "❌")}");
+            }
+        }
+
+        /// <summary>
+        /// Demonstrates feature access control with role-based authorization.
+        /// Shows practical examples of protecting different application features.
+        /// </summary>
+        private static void DemonstrateFeatureAccessControl(SecurityConfiguration config, ISecurityLogger logger)
+        {
+            Console.WriteLine("\n=== Feature Access Control Demo ===");
+
+            var authService = new AuthenticationService(config, logger);
+            var adminDashboard = new AdminDashboard(authService, logger);
+            var moderationTools = new ModerationTools(authService, logger);
+            var userFeatures = new UserFeatures(authService, logger);
+
+            // Test admin dashboard access
+            Console.WriteLine("\n--- Admin Dashboard Access Tests ---");
+            Console.WriteLine("Attempting admin dashboard access with different users:");
+
+            var dashboardTestCases = new[]
+            {
+                new { Username = "admin", ExpectedAccess = true, Description = "Valid admin user" },
+                new { Username = "moderator", ExpectedAccess = false, Description = "Moderator user (should be denied)" },
+                new { Username = "regularuser", ExpectedAccess = false, Description = "Regular user (should be denied)" },
+                new { Username = "attacker", ExpectedAccess = false, Description = "Potential attacker (should be denied)" }
+            };
+
+            foreach (var testCase in dashboardTestCases)
+            {
+                Console.WriteLine($"\nTesting: {testCase.Description}");
+                bool hasAccess = adminDashboard.AccessDashboard(testCase.Username);
+                string result = hasAccess == testCase.ExpectedAccess ? "✅ CORRECT" : "❌ UNEXPECTED";
+                Console.WriteLine($"Result: {result} - Access {(hasAccess ? "granted" : "denied")}");
+            }
+
+            // Test moderation tools access
+            Console.WriteLine("\n--- Moderation Tools Access Tests ---");
+            Console.WriteLine("Attempting moderation tools access with different users:");
+
+            var moderationTestCases = new[]
+            {
+                new { Username = "admin", ExpectedAccess = true, Description = "Admin user (should have access)" },
+                new { Username = "moderator", ExpectedAccess = true, Description = "Moderator user (should have access)" },
+                new { Username = "regularuser", ExpectedAccess = false, Description = "Regular user (should be denied)" }
+            };
+
+            foreach (var testCase in moderationTestCases)
+            {
+                Console.WriteLine($"\nTesting: {testCase.Description}");
+                bool hasAccess = moderationTools.AccessModerationTools(testCase.Username);
+                string result = hasAccess == testCase.ExpectedAccess ? "✅ CORRECT" : "❌ UNEXPECTED";
+                Console.WriteLine($"Result: {result} - Access {(hasAccess ? "granted" : "denied")}");
+            }
+
+            // Test user dashboard access
+            Console.WriteLine("\n--- User Dashboard Access Tests ---");
+            Console.WriteLine("Attempting user dashboard access:");
+
+            var userTestCases = new[]
+            {
+                new { Username = "admin", ExpectedAccess = true, Description = "Admin user" },
+                new { Username = "moderator", ExpectedAccess = true, Description = "Moderator user" },
+                new { Username = "regularuser", ExpectedAccess = true, Description = "Regular user" },
+                new { Username = "nonexistent", ExpectedAccess = false, Description = "Non-existent user (should be denied)" }
+            };
+
+            foreach (var testCase in userTestCases)
+            {
+                Console.WriteLine($"\nTesting: {testCase.Description}");
+                bool hasAccess = userFeatures.AccessUserDashboard(testCase.Username);
+                string result = hasAccess == testCase.ExpectedAccess ? "✅ CORRECT" : "❌ UNEXPECTED";
+                Console.WriteLine($"Result: {result} - Access {(hasAccess ? "granted" : "denied")}");
+            }
+
+            // Demonstrate admin-only functions
+            Console.WriteLine("\n--- Admin-Only Functions Demo ---");
+            Console.WriteLine("Testing role assignment (admin-only operation):");
+
+            bool roleAssignmentSuccess = adminDashboard.AssignUserRole("admin", "testuser", "moderator");
+            Console.WriteLine($"Role assignment by admin: {(roleAssignmentSuccess ? "✅ SUCCESS" : "❌ FAILED")}");
+
+            bool unauthorizedRoleAssignment = adminDashboard.AssignUserRole("regularuser", "testuser", "admin");
+            Console.WriteLine($"Unauthorized role assignment attempt: {(unauthorizedRoleAssignment ? "❌ SECURITY BREACH" : "✅ PROPERLY BLOCKED")}");
         }
     }
 }

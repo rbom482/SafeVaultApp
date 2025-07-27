@@ -28,10 +28,12 @@ BEGIN
         IsActive BIT NOT NULL DEFAULT 1,
         FailedLoginAttempts INT NOT NULL DEFAULT 0,
         LockedUntil DATETIME2 NULL,
+        UserRole NVARCHAR(20) NOT NULL DEFAULT 'user', -- Role-based authorization
         
         -- Constraints for security
         CONSTRAINT CK_Users_Username_Length CHECK (LEN(Username) >= 3),
-        CONSTRAINT CK_Users_Email_Format CHECK (Email LIKE '%@%.%')
+        CONSTRAINT CK_Users_Email_Format CHECK (Email LIKE '%@%.%'),
+        CONSTRAINT CK_Users_Role CHECK (UserRole IN ('user', 'admin', 'moderator'))
     );
     
     -- Create indexes for performance
@@ -215,9 +217,109 @@ SELECT
     LastName,
     CreatedDate,
     LastLoginDate,
-    IsActive
+    IsActive,
+    UserRole
 FROM Users
 WHERE IsActive = 1;
+GO
+
+-- Create stored procedure for role-based authorization
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'sp_CheckUserRole')
+    DROP PROCEDURE sp_CheckUserRole;
+GO
+
+CREATE PROCEDURE sp_CheckUserRole
+    @Username NVARCHAR(50),
+    @RequiredRole NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @UserRole NVARCHAR(20);
+    DECLARE @IsActive BIT;
+    
+    SELECT @UserRole = UserRole, @IsActive = IsActive
+    FROM Users
+    WHERE Username = @Username;
+    
+    -- Check if user exists and is active
+    IF @IsActive IS NULL OR @IsActive = 0
+    BEGIN
+        SELECT 'INACTIVE' AS Status, NULL AS UserRole;
+        RETURN;
+    END
+    
+    -- Check role authorization
+    IF @UserRole = 'admin' OR @UserRole = @RequiredRole
+    BEGIN
+        SELECT 'AUTHORIZED' AS Status, @UserRole AS UserRole;
+    END
+    ELSE
+    BEGIN
+        SELECT 'UNAUTHORIZED' AS Status, @UserRole AS UserRole;
+    END
+END
+GO
+
+-- Create stored procedure for updating user roles (admin only)
+IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'sp_UpdateUserRole')
+    DROP PROCEDURE sp_UpdateUserRole;
+GO
+
+CREATE PROCEDURE sp_UpdateUserRole
+    @AdminUsername NVARCHAR(50),
+    @TargetUsername NVARCHAR(50),
+    @NewRole NVARCHAR(20),
+    @IPAddress NVARCHAR(45) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @AdminRole NVARCHAR(20);
+    DECLARE @AdminUserId INT;
+    DECLARE @TargetUserId INT;
+    DECLARE @OldRole NVARCHAR(20);
+    
+    -- Verify admin privileges
+    SELECT @AdminRole = UserRole, @AdminUserId = UserId
+    FROM Users
+    WHERE Username = @AdminUsername AND IsActive = 1;
+    
+    IF @AdminRole != 'admin'
+    BEGIN
+        -- Log unauthorized role change attempt
+        INSERT INTO AuditLog (UserId, Action, IPAddress)
+        VALUES (@AdminUserId, 'UNAUTHORIZED_ROLE_CHANGE_ATTEMPT', @IPAddress);
+        
+        SELECT 'UNAUTHORIZED' AS Status;
+        RETURN;
+    END
+    
+    -- Get target user info
+    SELECT @TargetUserId = UserId, @OldRole = UserRole
+    FROM Users
+    WHERE Username = @TargetUsername AND IsActive = 1;
+    
+    IF @TargetUserId IS NULL
+    BEGIN
+        SELECT 'USER_NOT_FOUND' AS Status;
+        RETURN;
+    END
+    
+    -- Update role
+    UPDATE Users
+    SET UserRole = @NewRole
+    WHERE UserId = @TargetUserId;
+    
+    -- Log role change
+    INSERT INTO AuditLog (UserId, Action, OldValues, NewValues, IPAddress)
+    VALUES (@AdminUserId, 'ROLE_CHANGED', 
+            CONCAT('Target: ', @TargetUsername, ', OldRole: ', @OldRole),
+            CONCAT('Target: ', @TargetUsername, ', NewRole: ', @NewRole),
+            @IPAddress);
+    
+    SELECT 'SUCCESS' AS Status;
+END
 GO
 
 -- Grant appropriate permissions (example - adjust based on your security model)
@@ -227,14 +329,31 @@ GO
 -- This demonstrates secure password storage with salt and hash
 IF NOT EXISTS (SELECT * FROM Users WHERE Username = 'testuser')
 BEGIN
-    INSERT INTO Users (Username, PasswordHash, Salt, Email, FirstName, LastName)
+    INSERT INTO Users (Username, PasswordHash, Salt, Email, FirstName, LastName, UserRole)
     VALUES (
         'testuser',
         'hashed_password_here', -- In real implementation, this would be a proper PBKDF2 hash
         'random_salt_here',     -- In real implementation, this would be a cryptographically secure salt
         'test@example.com',
         'Test',
-        'User'
+        'User',
+        'user'
+    );
+END
+GO
+
+-- Create admin user for testing
+IF NOT EXISTS (SELECT * FROM Users WHERE Username = 'admin')
+BEGIN
+    INSERT INTO Users (Username, PasswordHash, Salt, Email, FirstName, LastName, UserRole)
+    VALUES (
+        'admin',
+        'admin_hashed_password_here', -- In real implementation, this would be a proper PBKDF2 hash
+        'admin_random_salt_here',     -- In real implementation, this would be a cryptographically secure salt
+        'admin@safevault.com',
+        'System',
+        'Administrator',
+        'admin'
     );
 END
 GO

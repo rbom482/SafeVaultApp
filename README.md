@@ -1,8 +1,16 @@
-# SafeVault Application - Enhanced Security Implementation
+# SafeVault Application - Enhanced Security Implementation with Authentication & Authorization
 
-A comprehensive demonstration of secure coding principles using Microsoft Copilot, implementing protection against common vulnerabilities such as SQL injection and XSS attacks while following OWASP Top 10 guidelines.
+A comprehensive demonstration of secure coding principles using Microsoft Copilot, implementing authentication, authorization, protection against common vulnerabilities such as SQL injection and XSS attacks, and following OWASP Top 10 guidelines with role-based access control (RBAC).
 
-## 🆕 **RECENT IMPROVEMENTS**
+## 🆕 **LATEST FEATURES - Activity 2 Complete**
+
+### **🔐 Authentication & Authorization System**
+- **Role-Based Access Control (RBAC)**: Complete implementation with user, moderator, and admin roles
+- **Secure Authentication**: Enhanced login system with comprehensive input validation and attack prevention
+- **Admin Dashboard**: Protected administrative interface accessible only to admin users
+- **Moderation Tools**: Feature access control for content moderation (moderator/admin only)
+- **Authorization Testing**: Comprehensive test suite validating all security scenarios and attack vectors
+- **Database Security**: Enhanced schema with user roles, permissions, and comprehensive audit logging
 
 ### **✅ Technical Upgrades**
 - **Modern SQL Client**: Upgraded from deprecated `System.Data.SqlClient` to `Microsoft.Data.SqlClient`
@@ -25,12 +33,17 @@ A comprehensive demonstration of secure coding principles using Microsoft Copilo
 - **Email validation**: Ensures proper email format
 - **Password strength validation**: Enforces strong password requirements
 
-### 2. Secure Authentication
+### 2. Secure Authentication & Authorization
+
 - **Parameterized queries**: All database operations use parameterized queries to prevent SQL injection
 - **Password hashing**: Uses PBKDF2 with SHA-256 for secure password storage
 - **Salt generation**: Cryptographically secure random salt for each password
 - **Account lockout**: Prevents brute force attacks with automatic account locking
 - **Session management**: Secure session handling with proper expiration
+- **Role-Based Access Control (RBAC)**: Three-tier role system (user, moderator, admin)
+- **Authorization checks**: Method-level authorization for all protected features
+- **Admin dashboard**: Secure administrative interface with comprehensive access controls
+- **Privilege escalation prevention**: Robust checks against unauthorized role elevation
 
 ### 3. XSS Protection
 - **Script tag detection**: Blocks `<script>` and `<iframe>` tags
@@ -105,8 +118,64 @@ The application includes a comprehensive security testing suite that validates:
 - **Password validation** with strength requirements
 - **Email validation** with proper format checking
 - **Input sanitization** effectiveness
+- **Authentication security** with SQL injection and XSS prevention
+- **Authorization controls** for role-based access
+- **Admin functionality** protection and privilege escalation prevention
+- **Feature access control** validation across all user roles
 
 Run the tests by executing the application - the security tests run automatically on startup.
+
+## 🔐 Authentication & Authorization System
+
+SafeVault implements a comprehensive role-based access control (RBAC) system with three distinct user roles:
+
+### User Roles
+- **👤 User**: Basic authenticated users with access to standard features
+- **🛠️ Moderator**: Can access moderation tools in addition to user features  
+- **🛡️ Admin**: Full system access including user management and admin dashboard
+
+### Key Features
+
+#### Authentication
+- Secure login with comprehensive input validation
+- Protection against SQL injection and XSS attacks in login forms
+- Account lockout after multiple failed attempts
+- Secure password hashing with PBKDF2 and cryptographic salts
+
+#### Authorization  
+- Method-level authorization checks for all protected features
+- Admin-only operations (user management, role assignment, system configuration)
+- Moderator features (content moderation, user warnings)
+- Comprehensive audit logging of all authorization attempts
+
+#### Admin Dashboard
+```csharp
+// Example: Admin-only feature access
+public bool AccessAdminDashboard(string username)
+{
+    if (!_authService.CanAccessAdminDashboard(username))
+    {
+        _logger.LogSecurityViolation("UNAUTHORIZED_ACCESS", 
+            "Unauthorized admin dashboard access attempt", username);
+        return false;
+    }
+    
+    ShowAdminDashboard(username);
+    return true;
+}
+```
+
+#### Role-Based Authorization
+```csharp
+// Example: Role checking with hierarchical permissions
+public bool IsUserAuthorized(string username, string requiredRole)
+{
+    // Admin users can access all features
+    // Moderators can access moderator and user features
+    // Users can only access user features
+    return authService.IsUserAuthorized(username, requiredRole);
+}
+```
 
 ## 🔍 Key Security Implementations
 
@@ -161,11 +230,19 @@ public bool LoginUser(string username, string password)
 
 This application addresses the following OWASP Top 10 vulnerabilities:
 
-1. **A03:2021 – Injection**: Prevented through input validation and parameterized queries
-2. **A07:2021 – Cross-Site Scripting (XSS)**: Blocked through input validation and sanitization
-3. **A02:2021 – Cryptographic Failures**: Addressed with proper password hashing (PBKDF2)
-4. **A07:2021 – Identification and Authentication Failures**: Mitigated with account lockout and secure sessions
-5. **A09:2021 – Security Logging**: Implemented through comprehensive audit logging
+1. **A01:2021 – Broken Access Control**: Prevented through comprehensive role-based authorization system
+2. **A02:2021 – Cryptographic Failures**: Addressed with proper password hashing (PBKDF2) and secure salt generation  
+3. **A03:2021 – Injection**: Prevented through input validation and parameterized queries
+4. **A07:2021 – Identification and Authentication Failures**: Comprehensive authentication system with account lockout, secure sessions, and role management
+5. **A07:2021 – Cross-Site Scripting (XSS)**: Blocked through input validation and sanitization
+6. **A09:2021 – Security Logging and Monitoring Failures**: Implemented through comprehensive audit logging with security event tracking
+
+### Enhanced Security Coverage
+- **Role-Based Access Control**: Three-tier permission system (user/moderator/admin)
+- **Admin Interface Protection**: Secure administrative dashboard with authorization checks
+- **Privilege Escalation Prevention**: Robust validation against unauthorized role elevation
+- **Comprehensive Input Validation**: Protection against SQL injection, XSS, and malicious input
+- **Security Audit Trails**: Detailed logging of authentication attempts, authorization checks, and admin actions
 
 ## 🛡️ Security Best Practices Implemented
 
